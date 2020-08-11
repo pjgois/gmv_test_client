@@ -1,7 +1,6 @@
 package com.gmv
 
-import java.io.ByteArrayOutputStream
-import java.io.IOException
+import java.io.*
 import java.net.Socket
 import java.text.MessageFormat
 
@@ -14,9 +13,30 @@ class Client {
 
     fun connect() {
 
-        val client = Socket("localhost", SERVER_PORT)
-        client.outputStream.write(toBytes("X38.753218Y-9.167966"))
-        client.close()
+        val socket = Socket("10.0.1.10", SERVER_PORT)
+
+        val dataInputStream = DataInputStream(BufferedInputStream(socket.getInputStream()))
+        val dataOutputStream = DataOutputStream(socket.getOutputStream())
+
+        dataOutputStream.write(toBytes("X38.753218Y-9.167966"))
+
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        while (!socket.isClosed) {
+            try {
+                when (val byteRead = dataInputStream.readByte()) {
+                    STX -> byteArrayOutputStream.write(byteRead.toInt())
+                    ETX -> {
+                        byteArrayOutputStream.write(byteRead.toInt())
+                        println(MessageFormat.format("Received new message: {0}", byteArrayOutputStream))
+                        byteArrayOutputStream.reset()
+                    }
+                    else -> byteArrayOutputStream.write(byteRead.toInt())
+                }
+            } catch (e: IOException) {
+                socket.close()
+                println("${socket?.inetAddress?.hostAddress} closed the connection")
+            }
+        }
     }
 
     private fun toBytes(message: String): ByteArray? {
